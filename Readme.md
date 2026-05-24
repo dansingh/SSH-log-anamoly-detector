@@ -1,43 +1,65 @@
-import re 
+import re
 from collections import defaultdict
-failed = defaultdict(int) 
-success = defaultdict(int) 
-timeline = defaultdict(list) # ip → list of timestamps 
-hourly = defaultdict(int) # hour → attack count 
-failed_pattern = r'Failed password for .+ from (\d+\.\d+\.\d+\.\d+)' 
-success_pattern = r'Accepted password for .+ from (\d+\.\d+\.\d+\.\d+)' 
-time_pattern = r'(\w+\s+\d+\s+\d+:\d+):\d+' 
-with open('example.txt', 'r') as file: 
-         for line in file: line = line.strip() # Check failed logins 
-              ch = re.search(failed_pattern, line) 
-              if ch:
-                       ip = ch.group(1) 
-                       failed[ip] += 1 # Extract hour for timeline 
-                       t = re.search(time_pattern, line)
-                        if t: 
-                             hour = t.group(1) 
-                             timeline[ip].append(hour)
-                             hourly[hour] += 1 # Check successful logins 
-             ch = re.search(success_pattern, line) 
-             if ch: 
-                    success[ch.group(1)] += 1 # Write report to file
- with open('report.txt', 'w') as report: 
-          report.write("=== SSH Brute Force Report ===\n\n")
-          for ip, count in sorted(failed.items(), key=lambda x: -x[1]):
-                      severity = "HIGH" if count >= 10 else "MEDIUM"
-                      if ip in success: 
-                            line_out = f"[CRITICAL] {ip} — {count} fails + SUCCESSFUL LOGIN ⚠️" 
-                     else: 
-                           line_out = f"[{severity}] {ip} — {count} failed attempts" 
-                           print(line_out) 
-                           report.write(line_out + "\n") # Show attack timeline for this IP 
-                     if timeline[ip]: 
-                           times = ", ".join(timeline[ip]) 
-                           print(f" Timeline: {times}") 
-                           report.write(f" Timeline: {times}\n") # Peak attack hour 
-         if hourly: 
-                      peak = max(hourly, key=hourly.get) 
-                      summary = f"\nPeak attack hour: {peak} ({hourly[peak]} attempts)" 
+
+failed   = defaultdict(int)
+success  = defaultdict(int)
+timeline = defaultdict(list)   # ip → list of timestamps
+hourly   = defaultdict(int)    # hour → attack count
+
+failed_pattern  = r'Failed password for .+ from (\d+\.\d+\.\d+\.\d+)'
+success_pattern = r'Accepted password for .+ from (\d+\.\d+\.\d+\.\d+)'
+time_pattern    = r'(\w+\s+\d+\s+\d+:\d+):\d+'
+
+with open('example.txt', 'r') as file:
+    for line in file:
+        line = line.strip()
+
+        # Check failed logins
+        ch = re.search(failed_pattern, line)
+        if ch:
+            ip = ch.group(1)
+            failed[ip] += 1
+            # Extract hour for timeline
+            t = re.search(time_pattern, line)
+            if t:
+                hour = t.group(1)
+                timeline[ip].append(hour)
+                hourly[hour] += 1
+
+        # Check successful logins
+        ch = re.search(success_pattern, line)
+        if ch:
+            success[ch.group(1)] += 1
+
+# Write report to file
+with open('report.txt', 'w') as report:
+    report.write("=== SSH Brute Force Report ===\n\n")
+
+    for ip, count in sorted(failed.items(), key=lambda x: -x[1]):
+        severity = "HIGH" if count >= 10 else "MEDIUM"
+
+        if ip in success:
+            line_out = f"[CRITICAL] {ip} — {count} fails + SUCCESSFUL LOGIN ⚠️"
+        else:
+            line_out = f"[{severity}] {ip} — {count} failed attempts"
+
+        print(line_out)
+        report.write(line_out + "\n")
+
+        # Show attack timeline for this IP
+        if timeline[ip]:
+            times = ", ".join(timeline[ip])
+            print(f"          Timeline: {times}")
+            report.write(f"          Timeline: {times}\n")
+
+    # Peak attack hour
+    if hourly:
+        peak = max(hourly, key=hourly.get)
+        summary = f"\nPeak attack hour: {peak} ({hourly[peak]} attempts)"
+        print(summary)
+        report.write(summary + "\n")
+
+print("\nReport saved to report.txt")
 
 def write_html_report(failed, success, timeline, hourly):
     peak = max(hourly, key=hourly.get) if hourly else "N/A"
